@@ -21,4 +21,4 @@ COPY --from=build /app/proto /proto/
 
 EXPOSE 80
 
-CMD ["/user-service", "serve"]
+CMD ["/user-service"]
