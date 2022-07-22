@@ -41,7 +41,7 @@ func (u *User) GeneratePasswordHash() error {
 	return nil
 }
 
-func (u *User) toResponse() *v1.UserResponse {
+func (u *User) toProto() *v1.UserResponse {
 	return &v1.UserResponse{
 		UserId:    u.UserID,
 		Name:      u.Name,

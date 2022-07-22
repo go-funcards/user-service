@@ -5,42 +5,40 @@ import (
 	"fmt"
 	"github.com/go-funcards/slice"
 	"github.com/go-funcards/user-service/proto/v1"
-	"go.uber.org/zap"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ v1.UserServer = (*userService)(nil)
+var _ v1.UserServer = (*server)(nil)
 
-type userService struct {
+type server struct {
 	v1.UnimplementedUserServer
 	storage Storage
-	log     *zap.Logger
+	log     logrus.FieldLogger
 }
 
-func NewUserService(storage Storage, logger *zap.Logger) *userService {
-	return &userService{
+func NewUserServer(storage Storage, log logrus.FieldLogger) *server {
+	return &server{
 		storage: storage,
-		log:     logger,
+		log:     log,
 	}
 }
 
-func (s *userService) CreateUser(ctx context.Context, in *v1.CreateUserRequest) (*emptypb.Empty, error) {
+func (s *server) CreateUser(ctx context.Context, in *v1.CreateUserRequest) (*emptypb.Empty, error) {
 	model := CreateUser(in)
 
 	if err := model.GeneratePasswordHash(); err != nil {
 		return nil, err
 	}
 
-	if err := s.storage.Save(ctx, model); err != nil {
-		return nil, err
-	}
+	err := s.storage.Save(ctx, model)
 
-	return &emptypb.Empty{}, nil
+	return s.empty(err)
 }
 
-func (s *userService) UpdateUser(ctx context.Context, in *v1.UpdateUserRequest) (*emptypb.Empty, error) {
+func (s *server) UpdateUser(ctx context.Context, in *v1.UpdateUserRequest) (*emptypb.Empty, error) {
 	model := UpdateUser(in)
 
 	if in.GetOldPassword() != in.GetNewPassword() && len(in.GetNewPassword()) > 0 {
@@ -59,21 +57,18 @@ func (s *userService) UpdateUser(ctx context.Context, in *v1.UpdateUserRequest) 
 		}
 	}
 
-	if err := s.storage.Save(ctx, model); err != nil {
-		return nil, err
-	}
+	err := s.storage.Save(ctx, model)
 
-	return &emptypb.Empty{}, nil
+	return s.empty(err)
 }
 
-func (s *userService) DeleteUser(ctx context.Context, in *v1.DeleteUserRequest) (*emptypb.Empty, error) {
-	if err := s.storage.Delete(ctx, in.GetUserId()); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+func (s *server) DeleteUser(ctx context.Context, in *v1.DeleteUserRequest) (*emptypb.Empty, error) {
+	err := s.storage.Delete(ctx, in.GetUserId())
+
+	return s.empty(err)
 }
 
-func (s *userService) GetUsers(ctx context.Context, in *v1.UsersRequest) (*v1.UsersResponse, error) {
+func (s *server) GetUsers(ctx context.Context, in *v1.UsersRequest) (*v1.UsersResponse, error) {
 	filter := Filter{UserIDs: in.GetUserIds(), Emails: in.GetEmails()}
 
 	data, err := s.storage.Find(ctx, filter, in.GetPageIndex(), in.GetPageSize())
@@ -90,13 +85,13 @@ func (s *userService) GetUsers(ctx context.Context, in *v1.UsersRequest) (*v1.Us
 
 	return &v1.UsersResponse{
 		Users: slice.Map(data, func(item User) *v1.UserResponse {
-			return item.toResponse()
+			return item.toProto()
 		}),
 		Total: total,
 	}, nil
 }
 
-func (s *userService) GetUserByEmailAndPassword(ctx context.Context, in *v1.UserByEmailAndPasswordRequest) (*v1.UserResponse, error) {
+func (s *server) GetUserByEmailAndPassword(ctx context.Context, in *v1.UserByEmailAndPasswordRequest) (*v1.UserResponse, error) {
 	models, err := s.storage.Find(ctx, Filter{Emails: []string{in.GetEmail()}}, 0, 1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user by email, err: %w", err)
@@ -106,9 +101,17 @@ func (s *userService) GetUserByEmailAndPassword(ctx context.Context, in *v1.User
 	}
 
 	if err = models[0].CheckPassword(in.GetPassword()); err != nil {
-		s.log.Error("failed to find user by email", zap.Error(err))
+		s.log.WithField("error", err).Error("failed to find user by email")
+
 		return nil, status.Errorf(codes.NotFound, "user %s not found", in.GetEmail())
 	}
 
-	return models[0].toResponse(), nil
+	return models[0].toProto(), nil
+}
+
+func (s *server) empty(err error) (*emptypb.Empty, error) {
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
