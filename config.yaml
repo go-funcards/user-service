@@ -1,23 +1,24 @@
-rules:
-  v1.CreateUserRequest:
-    UserId: "required,uuid4"
-    Name: "required,min=3,max=100"
-    Email: "required,email,max=180"
-    Password: "required,min=8,max=64"
-    Roles: "required,dive,min=1,max=50"
-  v1.UpdateUserRequest:
-    UserId: "required,uuid4"
-    Name: "omitempty,min=3,max=100"
-    Email: "omitempty,email,max=180"
-    OldPassword: "required_with=NewPassword,omitempty,min=8,max=64"
-    NewPassword: "omitempty,min=8,max=64"
-    Roles: "omitempty,dive,min=1,max=50"
-  v1.DeleteUserRequest:
-    UserId: "required,uuid4"
-  v1.UsersRequest:
-    PageSize: "required,min=1,max=1000"
-    UserIds: "omitempty,dive,uuid4"
-    Emails: "omitempty,dive,email,max=180"
-  v1.UserByEmailAndPasswordRequest:
-    Email: "required,email,max=180"
-    Password: "required,min=8,max=64"
+validation:
+  rules:
+    v1.CreateUserRequest:
+      UserId: "required,uuid4"
+      Name: "required,min=3,max=100"
+      Email: "required,email,max=180"
+      Password: "required,min=8,max=64"
+      Roles: "required,dive,min=1,max=50"
+    v1.UpdateUserRequest:
+      UserId: "required,uuid4"
+      Name: "omitempty,min=3,max=100"
+      Email: "omitempty,email,max=180"
+      OldPassword: "required_with=NewPassword,omitempty,min=8,max=64"
+      NewPassword: "omitempty,min=8,max=64"
+      Roles: "omitempty,dive,min=1,max=50"
+    v1.DeleteUserRequest:
+      UserId: "required,uuid4"
+    v1.UsersRequest:
+      PageSize: "required,min=1,max=1000"
+      UserIds: "omitempty,dive,uuid4"
+      Emails: "omitempty,dive,email,max=180"
+    v1.UserByEmailAndPasswordRequest:
+      Email: "required,email,max=180"
+      Password: "required,min=8,max=64"
