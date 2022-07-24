@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-funcards/mongodb"
 	"github.com/go-funcards/user-service/internal/user"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -21,13 +21,13 @@ const (
 
 type storage struct {
 	c   *mongo.Collection
-	log logrus.FieldLogger
+	log zerolog.Logger
 }
 
-func NewStorage(ctx context.Context, db *mongo.Database, log logrus.FieldLogger) *storage {
+func NewStorage(ctx context.Context, db *mongo.Database, log zerolog.Logger) *storage {
 	s := &storage{
 		c:   db.Collection(collection),
-		log: log,
+		log: log.With().Str("storage", "mongodb").Str("collection", collection).Logger(),
 	}
 	s.indexes(ctx)
 	return s
@@ -44,16 +44,10 @@ func (s *storage) indexes(ctx context.Context) {
 
 	names, err := s.c.Indexes().CreateMany(ctx, models)
 	if err != nil {
-		s.log.WithFields(logrus.Fields{
-			"collection": collection,
-			"error":      err,
-		}).Fatal("index not created")
+		s.log.Fatal().Err(err).Msg("index not created")
 	}
 
-	s.log.WithFields(logrus.Fields{
-		"collection": collection,
-		"name":       names,
-	}).Info("index created")
+	s.log.Info().Strs("index.name", names).Msg("index created")
 }
 
 func (s *storage) Save(ctx context.Context, model user.User) error {
@@ -65,7 +59,7 @@ func (s *storage) Save(ctx context.Context, model user.User) error {
 	delete(data, "_id")
 	delete(data, "created_at")
 
-	s.log.WithField("user_id", model.UserID).Info("user save")
+	s.log.Info().Str("user_id", model.UserID).Msg("user save")
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -85,10 +79,7 @@ func (s *storage) Save(ctx context.Context, model user.User) error {
 		return fmt.Errorf(fmt.Sprintf("user save: %s", mongodb.ErrMsgQuery), err)
 	}
 
-	s.log.WithFields(logrus.Fields{
-		"user_id": model.UserID,
-		"result":  result,
-	}).Info("user saved")
+	s.log.Info().Str("user_id", model.UserID).Interface("result", result).Msg("user saved")
 
 	return nil
 }
@@ -97,7 +88,7 @@ func (s *storage) Delete(ctx context.Context, id string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	s.log.WithField("user_id", id).Debug("user delete")
+	s.log.Debug().Str("user_id", id).Msg("user delete")
 	result, err := s.c.DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
 		return fmt.Errorf(mongodb.ErrMsgQuery, err)
@@ -105,7 +96,7 @@ func (s *storage) Delete(ctx context.Context, id string) error {
 	if result.DeletedCount == 0 {
 		return fmt.Errorf(mongodb.ErrMsgQuery, mongo.ErrNoDocuments)
 	}
-	s.log.WithField("user_id", id).Debug("user deleted")
+	s.log.Debug().Str("user_id", id).Msg("user deleted")
 
 	return nil
 }

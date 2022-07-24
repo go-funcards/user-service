@@ -6,7 +6,7 @@
 
 ```shell
 export MONGODB_URI="mongodb://funcards:password@0.0.0.0:27017/fundb?authsource=admin&authmechanism=SCRAM-SHA-256"
-LOG_LEVEL="debug" GRPC_ADDR=":50051" go run .
+LOG_LEVEL="debug" LOG_PRETTY=1 GRPC_ADDR=":50051" go run .
 ```
 
 ## License

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-funcards/slice"
 	"github.com/go-funcards/user-service/proto/v1"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -16,10 +16,10 @@ var _ v1.UserServer = (*server)(nil)
 type server struct {
 	v1.UnimplementedUserServer
 	storage Storage
-	log     logrus.FieldLogger
+	log     zerolog.Logger
 }
 
-func NewUserServer(storage Storage, log logrus.FieldLogger) *server {
+func NewUserServer(storage Storage, log zerolog.Logger) *server {
 	return &server{
 		storage: storage,
 		log:     log,
@@ -101,7 +101,7 @@ func (s *server) GetUserByEmailAndPassword(ctx context.Context, in *v1.UserByEma
 	}
 
 	if err = models[0].CheckPassword(in.GetPassword()); err != nil {
-		s.log.WithField("error", err).Error("failed to find user by email")
+		s.log.Error().Err(err).Msg("failed to find user by email")
 
 		return nil, status.Errorf(codes.NotFound, "user %s not found", in.GetEmail())
 	}
